@@ -1,8 +1,16 @@
 import React, { useState, useEffect } from 'react';
 
+// TypeScript declarations for global functions
+declare global {
+  interface Window {
+    gtag: (...args: any[]) => void;
+    fbq: (...args: any[]) => void;
+  }
+}
+
 const MethyleneBlueQuiz = () => {
   const [currentStep, setCurrentStep] = useState('hero');
-  const [answers, setAnswers] = useState({});
+  const [answers, setAnswers] = useState<Record<string, string>>({});
   const [showResult, setShowResult] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisStep, setAnalysisStep] = useState(0);
@@ -25,15 +33,69 @@ const MethyleneBlueQuiz = () => {
   }, [questionIndex, currentStep]);
 
   // Google Analytics 4 Tracking
-  const GA_TRACKING_ID = 'G-2BBJQ12KZN';
-  
+  const GA_TRACKING_ID = 'G-BK1MD3C7QL';
+
+  // Advanced tracking state
+  const [questionStartTime, setQuestionStartTime] = useState<number>(Date.now());
+  const [timeOnPage, setTimeOnPage] = useState<number>(0);
+  const [scrollDepth, setScrollDepth] = useState<number>(0);
+  const [interactionCount, setInteractionCount] = useState<number>(0);
+
+  // Helper function to safely call gtag
+  const safeGtag = (...args: any[]) => {
+    if (typeof window !== 'undefined' && window.gtag) {
+      window.gtag(...args);
+    }
+  };
+
+  // Helper function to safely call fbq
+  const safeFbq = (...args: any[]) => {
+    if (typeof window !== 'undefined' && window.fbq) {
+      window.fbq(...args);
+    }
+  };
+
   const trackEvent = (eventName: string, parameters: Record<string, any> = {}) => {
-    if (typeof window !== 'undefined' && (window as any).gtag) {
-      (window as any).gtag('event', eventName, {
-        event_category: 'quiz_interaction',
-        ...parameters
+    safeGtag('event', eventName, {
+      event_category: 'quiz_interaction',
+      ...parameters
+    });
+  };
+
+  // Enhanced tracking functions
+  const trackQuestionTime = (questionId: string, timeSpent: number) => {
+    safeGtag('event', 'question_time_spent', {
+      question_id: questionId,
+      time_spent_seconds: Math.round(timeSpent / 1000),
+      content_name: 'Hair Loss Quiz',
+      quiz_severity: figureOutSeverity()
+    });
+  };
+
+  const trackScrollDepth = () => {
+    const scrollPercent = Math.round((window.scrollY / (document.documentElement.scrollHeight - window.innerHeight)) * 100);
+    if (scrollPercent > scrollDepth) {
+      setScrollDepth(scrollPercent);
+      safeGtag('event', 'scroll_depth', {
+        scroll_percentage: scrollPercent,
+        content_name: 'Hair Loss Quiz'
       });
     }
+  };
+
+  const trackHover = (element: string) => {
+    safeGtag('event', 'element_hover', {
+      element_name: element,
+      content_name: 'Hair Loss Quiz'
+    });
+  };
+
+  const trackInfoBoxInteraction = (infoBoxTitle: string, action: string) => {
+    safeGtag('event', 'info_box_interaction', {
+      info_box_title: infoBoxTitle,
+      action: action,
+      content_name: 'Hair Loss Quiz'
+    });
   };
 
   // Facebook Pixel Tracking
@@ -50,12 +112,21 @@ const MethyleneBlueQuiz = () => {
   };
 
   const getAllQuestions = () => {
-    let questions = [
+    let questions: Array<{
+      id?: string;
+      type: string;
+      title: string;
+      subtitle?: string;
+      options?: string[];
+      content?: string;
+      bgColor?: string;
+      textColor?: string;
+    }> = [
       {
         id: 'age',
         type: 'question',
         title: 'How old are you?',
-        subtitle: "(2-minute brain test - get your personal plan)",
+        subtitle: "(2-minute hair loss assessment - get your personal plan)",
         options: ['Under 30', '30-39', '40-49', '50-59', '60+']
       },
       {
@@ -68,25 +139,26 @@ const MethyleneBlueQuiz = () => {
       {
         id: 'main_problem',
         type: 'question',
-        title: 'How do you feel right now?',
+        title: 'How does your hair loss make you feel right now?',
         options: [
-          'My brain feels broken',
-          'I forget words mid-sentence',
-          'I need 3+ coffees just to function',
-          'I feel underwater/in a haze all day',
-          "I don't feel like myself anymore",
-          'I feel mentally dead most days'
+          'I\'m terrified I\'ll go completely bald',
+          'I avoid mirrors and photos',
+          'I dread washing my hair (the clumps in the drain)',
+          'I don\'t feel feminine anymore',
+          'I hide my thin spots with hats/scarves',
+          'I\'ve lost all confidence in how I look'
         ]
       },
       {
-        id: 'chronic_illness',
+        id: 'life_situation',
         type: 'question',
-        title: 'Do any of these apply to you?',
+        title: 'Which describes your situation?',
         options: [
-          'I have long COVID/chronic fatigue',
-          'I have thyroid/autoimmune issues',
-          'I had COVID and never fully recovered',
-          'I have mysterious health problems doctors can\'t fix',
+          'I\'m postpartum and my hair is falling out in chunks',
+          'I\'m going through menopause/perimenopause',
+          'I have PCOS or hormonal imbalances',
+          'I\'ve been under extreme stress lately',
+          'I just noticed my hair getting thinner',
           'None of these apply to me'
         ]
       }
@@ -95,56 +167,57 @@ const MethyleneBlueQuiz = () => {
     // Add different questions based on gender (conditional logic)
     if (answers.gender === 'Female') {
       questions.push({
-        id: 'menopause',
+        id: 'hormonal_impact',
         type: 'question',
-        title: 'Are you going through menopause?',
+        title: 'Do you think hormones are causing your hair loss?',
         options: [
-          "Yes, I'm going through it now",
-          'Yes, I think I am',
-          'Yes, I went through it already',
-          "No, that's not me",
-          "I'm not sure"
+          'Yes, definitely - it started after pregnancy/menopause',
+          'Yes, I think so - it coincided with hormonal changes',
+          'Maybe - I\'ve heard DHT affects women too',
+          'I\'m not sure what\'s causing it',
+          'No, I think it\'s just stress/genetics'
         ]
       });
 
       questions.push({
-        id: 'life_hard',
+        id: 'identity_femininity',
         type: 'question',
-        title: 'Does life feel way harder than it should?',
+        title: 'How is hair loss affecting your sense of being a woman?',
         options: [
-          'YES - Everything feels impossible now',
-          'Yes - Simple things are so hard',
-          'Yes - I used to handle everything easily',
-          'Sometimes - I have good days and bad days',
-          'No - I feel pretty normal'
+          'I don\'t feel feminine anymore',
+          'I feel like I\'m aging too fast',
+          'I avoid intimate situations',
+          'I feel less attractive to my partner',
+          'I\'m embarrassed in social situations',
+          'It\'s affecting everything about how I see myself'
         ]
       });
     }
 
     if (answers.gender === 'Male') {
       questions.push({
-        id: 'supplements',
+        id: 'dht_awareness',
         type: 'question',
-        title: 'Have you tried expensive brain supplements?',
+        title: 'Have you heard about DHT (the hormone that causes hair loss)?',
         options: [
-          "Yes, tried many - they don't work",
-          'Yes, some helped a little',
-          'Yes, but too expensive to keep buying',
-          "No, but I've heard about them",
-          "No, I'm new to this"
+          'Yes, I know DHT is the main culprit',
+          'I\'ve heard of it but don\'t know much',
+          'No, but I want to learn',
+          'I think my hair loss is just genetic',
+          'I\'m not sure what\'s causing my hair loss'
         ]
       });
 
       questions.push({
-        id: 'tracking',
+        id: 'treatment_willingness',
         type: 'question',
-        title: 'Do you track your health data?',
+        title: 'How do you feel about taking medication for hair loss?',
         options: [
-          'Yes, I track everything',
-          'Yes, I use fitness watches',
-          'Sometimes - basic stuff',
-          'No, but I want to start',
-          'No, I just go by how I feel'
+          'I want to avoid pharmaceutical drugs',
+          'I\'m open to natural solutions',
+          'I\'ve tried Propecia but had side effects',
+          'I\'m scared of the side effects',
+          'I\'ll try anything that works'
         ]
       });
     }
@@ -153,145 +226,144 @@ const MethyleneBlueQuiz = () => {
     questions.push({
       id: 'competitor_awareness',
       type: 'question',
-      title: 'Have you heard of Methylene Blue before?',
+      title: 'What have you already tried for your hair loss?',
       options: [
-        'Yes, I\'ve tried Troscriptions/troches',
-        'Yes, but the blue tongue/staining put me off',
-        'Yes, but it was too expensive',
-        'I\'ve heard of it but never tried',
-        'No, this is completely new to me'
+        'Expensive supplements like Nutrafol/Viviscal',
+        'Minoxidil (Rogaine) but didn\'t like the side effects',
+        'Biotin, collagen, and other vitamins',
+        'Saw palmetto or other DHT blockers',
+        'Special shampoos and topical treatments',
+        'Nothing yet - this is my first attempt'
       ]
     });
 
     // More questions for everyone
     questions.push(
       {
-        id: 'work_problems',
+        id: 'social_impact',
         type: 'question',
-        title:
-          answers.gender === 'Female'
-            ? "Are people at work noticing you're different?"
-            : 'Is this hurting your work performance?',
+        title: 'How is hair loss affecting your daily life?',
         options: [
-          'I can barely function some days',
-          'People are starting to notice my mistakes',
-          'I\'m scared younger people will take my job',
-          'I need tons of coffee just to think',
-          "I'm losing my edge",
-          'I forget why I walked into rooms'
+          'People at work are noticing my thin spots',
+          'I check every mirror obsessively',
+          'I avoid social situations and photos',
+          'I spend forever styling to hide bald patches',
+          'I wear hats constantly',
+          'My confidence is completely shot'
         ]
       },
       {
         type: 'info',
         title: "💪 You're Not Alone",
         content:
-          'Most adults over 40 have this same problem. The ones who get better? They found what actually works and did something about it.',
+          'Millions of women worldwide experience hair loss. The ones who get their hair back? They found what actually blocks DHT naturally and stuck with it.',
         bgColor: 'bg-green-50',
         textColor: 'text-green-800'
       },
       {
-        id: 'family_impact',
+        id: 'relationships',
         type: 'question',
-        title: 'How is this affecting your family?',
+        title: 'How is this affecting your relationships?',
         options: [
-          'My family has to repeat everything',
-          'I have no energy left for them after work',
-          'My spouse gets frustrated with me',
-          "I can't focus during conversations",
-          "I feel like I'm failing them",
-          "They say I'm not myself anymore"
+          'My partner tries to reassure me but I don\'t believe them',
+          'I avoid intimacy because I\'m embarrassed',
+          'I cancel plans because of "bad hair days"',
+          'My family says I\'m obsessing over it',
+          'I feel like people are staring at my scalp',
+          'I don\'t feel like myself in relationships anymore'
         ]
       },
       {
-        id: 'how_desperate',
+        id: 'how_desperately',
         type: 'question',
-        title: 'How hard are you trying to fix this?',
+        title: 'How desperately do you want to stop your hair loss?',
         options: [
-          "I've cried at doctors asking for help",
-          "I've tried everything - nothing works",
-          "I'm spending tons of money on stuff that doesn't work",
-          'I had given up until I heard about this',
-          "I'm thinking about prescription drugs",
-          "I'm just realizing how bad this is"
+          'I cry in the shower looking at hair clumps',
+          'I\'ve spent hundreds on products that don\'t work',
+          'I\'ve considered expensive procedures like PRP',
+          'I Google "hair loss cure" every day',
+          'I\'ve thought about wearing wigs',
+          'I\'ve almost given up hope completely'
         ]
       },
       {
         type: 'info',
-        title: "🔬 What Doctors Don't Tell You",
+        title: "🔬 What Most Women Don't Know",
         content:
-          "Your brain fog isn't \"just getting old.\" Your brain's tiny power plants are broken. Fix those power plants, and everything gets better.",
+          "Your hair loss isn't \"just genetics.\" DHT hormone is literally strangling your follicles. Block the DHT naturally, and your hair can start growing again.",
         bgColor: 'bg-purple-50',
         textColor: 'text-purple-800'
       },
       {
         id: 'how_long',
         type: 'question',
-        title: 'How long has this been ruining your life?',
+        title: 'How long has your hair been thinning?',
         options: [
-          'Just started and getting worse fast',
-          "About a year and I'm panicking",
-          "Years - I've given up hope",
-          'Forever - I forgot what normal feels like',
-          'Started during menopause',
-          'Since I got sick - never recovered'
+          'Just started and I\'m panicking',
+          'About 6 months and getting worse',
+          '1-2 years and I\'m desperate',
+          'Years - I\'ve tried everything',
+          'Since pregnancy/menopause',
+          'So long I forgot what thick hair feels like'
         ]
       },
       {
         id: 'biggest_fear',
         type: 'question',
-        title: 'What scares you most?',
+        title: 'What\'s your biggest fear about your hair loss?',
         options: [
-          "Getting Alzheimer's disease",
-          'Losing my job',
-          'Being a burden to my family',
-          'Never feeling normal again',
-          'Younger people taking over',
-          "Forgetting my family's names"
+          'Going completely bald',
+          'Looking old and unattractive',
+          'My partner losing interest in me',
+          'Never feeling confident again',
+          'People talking about my appearance',
+          'Needing to wear wigs for the rest of my life'
         ]
       },
       {
         type: 'info',
-        title: '⚡ Why Smart People Use This',
+        title: '⚡ The Natural DHT Blocker That Actually Works',
         content:
-          'Bryan Johnson spends $2 million a year staying young - he uses this. The Bulletproof Coffee guy swears by it. It\'s not just another pill - it\'s what works when everything else fails.',
+          'Clinical studies show pumpkin seed oil can increase hair count by 40%. Unlike drugs, it has no side effects. Unlike expensive supplements, it targets the root cause: DHT.',
         bgColor: 'bg-blue-50',
         textColor: 'text-blue-800'
       },
       {
         id: 'what_failed',
         type: 'question',
-        title: 'What have you wasted money on?',
+        title: 'What have you wasted money on that didn\'t work?',
         options: [
-          'Expensive brain pills that did nothing',
-          'Doctors who said "you\'re fine"',
-          'Antidepressants with bad side effects',
-          "Vitamins that don't work",
-          "Therapy that didn't fix the real problem",
-          'Nothing yet - but I need help'
+          'Nutrafol or Viviscal (expensive but no results)',
+          'Minoxidil that made my scalp irritated',
+          'Dozens of biotin supplements and vitamins',
+          'Expensive shampoos that promised miracles',
+          'Scalp treatments at salons',
+          'Nothing yet - but I\'m afraid to try things'
         ]
       },
 
       {
         id: 'qualification_budget',
         type: 'question',
-        title: 'How serious are you about fixing this brain fog?',
+        title: 'How serious are you about stopping your hair loss?',
         options: [
-          'I\'ll try anything that actually works',
-          'I\'m ready to invest in a real solution',
-          'I want to try it but I\'m on a tight budget',
-          'I\'m just looking around for now'
+          'I\'ll invest in anything that actually works',
+          'I\'m ready for a real solution, not another fake promise',
+          'I want to try it but money is tight',
+          'I\'m comparing options right now',
+          'Just researching for now'
         ]
       },
       {
-        id: 'urgency',
+        id: 'how_badly_need',
         type: 'question',
         title: 'How badly do you need this to work?',
         options: [
-          'DESPERATELY - My life depends on it',
-          "Very badly - I can't live like this",
-          'Pretty badly - This affects everything',
-          'Somewhat - I want to fix this soon',
-          'Just curious - but worried'
+          'DESPERATELY - I can\'t lose any more hair',
+          'Very badly - This is ruining my life',
+          'Pretty badly - I need to stop this now',
+          'Somewhat - I want to prevent it getting worse',
+          'Just want to learn more about natural options'
         ]
       }
     );
@@ -312,17 +384,17 @@ const MethyleneBlueQuiz = () => {
     // Woman going through menopause
     if (
       answers.gender === 'Female' &&
-      answers.menopause &&
-      (answers.menopause as string).includes('Yes')
+      answers.hormonal_impact &&
+      (answers.hormonal_impact as string).includes('Yes, definitely')
     ) {
       scores.hormonal_woman += 4;
     }
-    if (answers.life_hard && (answers.life_hard as string).includes('impossible')) {
+    if (answers.identity_femininity && (answers.identity_femininity as string).includes('don\'t feel feminine')) {
       scores.hormonal_woman += 3;
     }
     if (
       answers.main_problem &&
-      (answers.main_problem as string).includes("don't feel like myself")
+      (answers.main_problem as string).includes("don't feel feminine")
     ) {
       scores.hormonal_woman += 2;
     }
@@ -330,41 +402,41 @@ const MethyleneBlueQuiz = () => {
     // Male biohacker
     if (
       answers.gender === 'Male' &&
-      answers.tracking &&
-      (answers.tracking as string).includes('track everything')
+      answers.treatment_willingness &&
+      (answers.treatment_willingness as string).includes('natural solutions')
     ) {
       scores.biohacker_man += 4;
     }
-    if (answers.supplements && (answers.supplements as string).includes('tried many')) {
+    if (answers.dht_awareness && (answers.dht_awareness as string).includes('Yes, I know DHT')) {
       scores.biohacker_man += 3;
     }
 
-    // Sick person (COVID etc)
-    if (answers.how_long && (answers.how_long as string).includes('Since I got sick')) {
+    // Sick person (postpartum, menopause, etc)
+    if (answers.life_situation && (answers.life_situation as string).includes('postpartum')) {
       scores.sick_person += 4;
     }
     if (
-      answers.how_desperate &&
-      (answers.how_desperate as string).includes('tried everything')
+      answers.how_desperately &&
+      (answers.how_desperately as string).includes('almost given up hope')
     ) {
       scores.sick_person += 3;
     }
 
     // Work-focused person
     if (
-      answers.work_problems &&
-      (answers.work_problems as string).includes('losing my edge')
+      answers.social_impact &&
+      (answers.social_impact as string).includes('People at work are noticing')
     ) {
       scores.work_person += 3;
     }
-    if (answers.biggest_fear && (answers.biggest_fear as string).includes('Losing my job')) {
+    if (answers.biggest_fear && (answers.biggest_fear as string).includes('Looking old')) {
       scores.work_person += 2;
     }
 
     // Tired parent
     if (
-      answers.family_impact &&
-      (answers.family_impact as string).includes('no energy left')
+      answers.relationships &&
+      (answers.relationships as string).includes('avoid intimacy')
     ) {
       scores.tired_parent += 3;
     }
@@ -386,22 +458,22 @@ const MethyleneBlueQuiz = () => {
     }
 
     if (
-      answers.how_desperate &&
-      ((answers.how_desperate as string).includes('cried at doctors') ||
-        (answers.how_desperate as string).includes('given up'))
+      answers.how_desperately &&
+      ((answers.how_desperately as string).includes('cried at doctors') ||
+        (answers.how_desperately as string).includes('given up'))
     ) {
       badness += 4;
     }
 
     if (
-      answers.work_problems &&
-      ((answers.work_problems as string).includes('barely function') ||
-        (answers.work_problems as string).includes('starting to notice'))
+      answers.social_impact &&
+      ((answers.social_impact as string).includes('barely function') ||
+        (answers.social_impact as string).includes('starting to notice'))
     ) {
       badness += 3;
     }
 
-    if (answers.urgency && (answers.urgency as string).includes('DESPERATELY')) {
+    if (answers.how_badly_need && (answers.how_badly_need as string).includes('DESPERATELY')) {
       badness += 2;
     }
 
@@ -411,16 +483,64 @@ const MethyleneBlueQuiz = () => {
     return 'OKAY';
   };
 
+  // Enhanced useEffect for tracking
+  useEffect(() => {
+    // Track page load
+    safeGtag('config', GA_TRACKING_ID, {
+      page_title: 'Hair Loss Quiz',
+      page_location: window.location.href
+    });
+
+    // Track time on page
+    const timeInterval = setInterval(() => {
+      setTimeOnPage(prev => prev + 1);
+    }, 1000);
+
+    // Track scroll depth
+    window.addEventListener('scroll', trackScrollDepth);
+
+    return () => {
+      clearInterval(timeInterval);
+      window.removeEventListener('scroll', trackScrollDepth);
+    };
+  }, []);
+
+  // Enhanced question tracking - moved to after currentQuestion is defined
+  const trackQuestionView = (question: any, index: number) => {
+    setQuestionStartTime(Date.now());
+    
+    // Track question view
+    safeGtag('event', 'question_viewed', {
+      question_id: question.id,
+      question_title: question.title,
+      question_number: index + 1,
+      content_name: 'Hair Loss Quiz'
+    });
+  };
+
   const handleAnswer = (questionId: string, answer: string) => {
-    const newAnswers = { ...answers, [questionId]: answer } as Record<string, unknown>;
+    const timeSpent = Date.now() - questionStartTime;
+    
+    // Track question time
+    trackQuestionTime(questionId, timeSpent);
+    
+    const newAnswers = { ...answers, [questionId]: answer };
     setAnswers(newAnswers);
     
     // Track question answer
-    trackEvent('question_answered', {
+    safeGtag('event', 'question_answered', {
       question_id: questionId,
-      answer: answer,
+      answer_selected: answer,
+      time_spent_seconds: Math.round(timeSpent / 1000),
       question_number: questionIndex + 1,
-      total_questions: getAllQuestions().length
+      content_name: 'Hair Loss Quiz',
+      quiz_severity: figureOutSeverity()
+    });
+    
+    // Track Facebook Pixel
+    safeFbq('track', 'ViewContent', {
+      content_name: 'Hair Loss Quiz',
+      quiz_severity: figureOutSeverity()
     });
     
     setTimeout(() => nextStep(), 500);
@@ -428,15 +548,50 @@ const MethyleneBlueQuiz = () => {
 
   const nextStep = () => {
     if (currentStep === 'hero') {
+      // Track quiz start
+      safeGtag('event', 'quiz_started', {
+        content_name: 'Hair Loss Quiz',
+        timestamp: new Date().toISOString()
+      });
+      
+      safeFbq('track', 'InitiateCheckout', {
+        content_name: 'Hair Loss Quiz'
+      });
+      
       setCurrentStep('quiz');
-      return;
-    }
-
-    const questions = getAllQuestions();
-    if (questionIndex < questions.length - 1) {
-      setQuestionIndex(questionIndex + 1);
-    } else {
-      startAnalysis();
+    } else if (currentStep === 'quiz') {
+      if (questionIndex < getAllQuestions().length - 1) {
+        setQuestionIndex(questionIndex + 1);
+        
+        // Track next question
+        const nextQuestion = getAllQuestions()[questionIndex + 1];
+        if (nextQuestion) {
+          trackQuestionView(nextQuestion, questionIndex + 1);
+        }
+      } else {
+        // Track quiz completion
+        safeGtag('event', 'quiz_completed', {
+          content_name: 'Hair Loss Quiz',
+          quiz_severity: figureOutSeverity(),
+          total_questions: getAllQuestions().length,
+          time_on_page_seconds: timeOnPage
+        });
+        
+        safeFbq('track', 'CompleteRegistration', {
+          content_name: 'Hair Loss Quiz',
+          quiz_severity: figureOutSeverity()
+        });
+        
+        setIsAnalyzing(true);
+        setCurrentStep('analysis');
+        
+        // Simulate analysis
+        setTimeout(() => {
+          setIsAnalyzing(false);
+          setShowResult(true);
+          setCurrentStep('result');
+        }, 3000);
+      }
     }
   };
 
@@ -445,7 +600,7 @@ const MethyleneBlueQuiz = () => {
 
     const steps = [
       '🧠 Looking at your answers...',
-      '⚡ Checking how bad your problem is...',
+      '⚡ Checking how bad your hair loss is...',
       '📊 Figuring out the best plan for you...',
       '🎯 Finding what will work for your situation...',
       '✅ Making your personal plan...'
@@ -463,21 +618,23 @@ const MethyleneBlueQuiz = () => {
           setShowResult(true);
           
           // Track quiz completion
-          trackEvent('quiz_completed', {
+          safeGtag('event', 'quiz_completed', {
+            content_name: 'Hair Loss Quiz',
+            quiz_severity: figureOutSeverity(),
             total_questions: getAllQuestions().length,
-            answers_count: Object.keys(answers).length
+            answers_count: Object.keys(answers).length,
+            time_on_page_seconds: timeOnPage
           });
 
           // Facebook Pixel: Custom quiz_completed event
           console.log('🔍 About to send quiz_completed event...');
-          console.log('🔍 Current severity:', severity);
+          console.log('🔍 Current severity:', figureOutSeverity());
           console.log('🔍 Total questions:', getAllQuestions().length);
           console.log('🔍 Answers count:', Object.keys(answers).length);
           
-          trackFacebookEvent('quiz_completed', {
-            content_name: 'Methylene Blue Quiz',
-            content_category: 'Health Assessment',
-            quiz_severity: severity,
+          safeFbq('track', 'CompleteRegistration', {
+            content_name: 'Hair Loss Quiz',
+            quiz_severity: figureOutSeverity(),
             total_questions: getAllQuestions().length,
             answers_count: Object.keys(answers).length
           });
@@ -488,6 +645,107 @@ const MethyleneBlueQuiz = () => {
     }, 1500);
   };
 
+  const handleCTAClick = () => {
+    safeGtag('event', 'cta_clicked', {
+      cta_location: 'main_results',
+      content_name: 'Hair Loss Quiz',
+      quiz_severity: figureOutSeverity(),
+      time_on_page_seconds: timeOnPage,
+      scroll_depth_percentage: scrollDepth,
+      interaction_count: interactionCount
+    });
+
+    safeFbq('track', 'AddToWishlist', {
+      content_name: 'Hair Loss Quiz',
+      quiz_severity: figureOutSeverity()
+    });
+  };
+
+  const startQuiz = () => {
+    // Track quiz start button click
+    safeGtag('event', 'quiz_start_button_clicked', {
+      content_name: 'Hair Loss Quiz',
+      button_location: 'hero_section',
+      timestamp: new Date().toISOString()
+    });
+    
+    safeFbq('track', 'Lead', {
+      content_name: 'Hair Loss Quiz'
+    });
+    
+    nextStep();
+  };
+
+  // Enhanced quiz rendering with tracking
+  const renderQuiz = () => {
+    const currentQuestion = getAllQuestions()[questionIndex];
+    
+    if (!currentQuestion) return null;
+    
+    // Track question view when rendering
+    if (currentStep === 'quiz') {
+      trackQuestionView(currentQuestion, questionIndex);
+    }
+
+    if (currentQuestion.type === 'question') {
+      return (
+        <div className="max-w-2xl mx-auto">
+          <h2 
+            className="text-2xl sm:text-3xl font-bold text-gray-900 mb-6 sm:mb-8 text-center"
+            onMouseEnter={() => trackHover('question_title')}
+          >
+            {currentQuestion.title}
+          </h2>
+          {currentQuestion.subtitle && (
+            <p 
+              className="text-gray-600 mb-6 sm:mb-8 text-center text-base sm:text-lg"
+              onMouseEnter={() => trackHover('question_subtitle')}
+            >
+              {currentQuestion.subtitle}
+            </p>
+          )}
+          <div className="space-y-4">
+            {currentQuestion.options?.map((option: string, index: number) => (
+              <button
+                key={index}
+                className="w-full p-4 text-left border-2 border-gray-200 rounded-lg hover:border-green-500 hover:bg-green-50 transition-all duration-200 text-lg"
+                onClick={() => handleAnswer((currentQuestion as any).id, option)}
+                onMouseEnter={() => trackHover(`answer_option_${index + 1}`)}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
+        </div>
+      );
+    } else {
+      return (
+        <div 
+          className={`${(currentQuestion as any).bgColor} rounded-2xl p-6 sm:p-8 text-center`}
+          onMouseEnter={() => trackHover('info_box')}
+          onClick={() => trackInfoBoxInteraction((currentQuestion as any).title, 'viewed')}
+        >
+          <h2 className={`text-xl sm:text-2xl font-bold ${(currentQuestion as any).textColor} mb-4 sm:mb-6`}>
+            {(currentQuestion as any).title}
+          </h2>
+          <p className={`${(currentQuestion as any).textColor} text-base sm:text-lg leading-relaxed mb-6 sm:mb-8`}>
+            {(currentQuestion as any).content}
+          </p>
+          <button
+            className="px-8 py-3 bg-white text-gray-800 font-semibold rounded-lg hover:bg-gray-100 transition-colors"
+            onClick={() => {
+              trackInfoBoxInteraction((currentQuestion as any).title, 'continued');
+              nextStep();
+            }}
+            onMouseEnter={() => trackHover('info_box_continue_button')}
+          >
+            Continue
+          </button>
+        </div>
+      );
+    }
+  };
+
   if (currentStep === 'hero') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
@@ -496,8 +754,8 @@ const MethyleneBlueQuiz = () => {
           <div className="text-center mb-6 sm:mb-8">
             <div className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 rounded-full mx-auto mb-4 overflow-hidden">
               <img 
-                src="https://cdn.shopify.com/s/files/1/0965/1824/2645/files/dr_chen.jpg?v=1755129328" 
-                alt="Dr. Michael Chen - Brain Wellness Specialist"
+                src="https://cdn.shopify.com/s/files/1/0928/4105/0486/files/Screenshot_2025-08-21_at_19.04.18.jpg?v=1755796003"
+                alt="Jennifer Walsh - Hair & Scalp Health Expert"
                 className="w-full h-full object-cover"
               />
             </div>
@@ -508,10 +766,10 @@ const MethyleneBlueQuiz = () => {
 
           <div className="text-center mb-8 sm:mb-12">
             <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 mb-4 sm:mb-6 leading-tight">
-              Struggling with brain fog and mental fatigue?
+              Struggling with hair loss and thinning?
             </h1>
             <h2 className="text-lg sm:text-xl md:text-2xl text-gray-700 mb-6 sm:mb-8 leading-relaxed max-w-3xl mx-auto">
-              Get your personalized cognitive wellness assessment and discover what's really causing your symptoms - <span className="text-green-500 font-semibold">free analysis</span>.
+              Get your personalized hair loss assessment and discover what's really causing your thinning - <span className="text-green-500 font-semibold">free analysis</span>.
             </h2>
 
             <button
@@ -530,23 +788,23 @@ const MethyleneBlueQuiz = () => {
 
           <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-6 sm:p-10 mb-6 sm:mb-8 shadow-2xl border border-white/20">
             <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6 text-center">
-              Your expert for <span className="text-blue-600">cognitive wellness</span>.
+              Your expert for <span className="text-blue-600">hair restoration</span>.
             </h3>
 
             <div className="flex flex-col md:flex-row items-center gap-6 sm:gap-8">
               <div className="w-20 h-20 sm:w-24 sm:h-24 md:w-32 md:h-32 rounded-full flex-shrink-0 overflow-hidden shadow-xl ring-4 ring-white">
                 <img 
-                  src="https://cdn.shopify.com/s/files/1/0965/1824/2645/files/dr_chen.jpg?v=1755129328" 
-                  alt="Dr. Michael Chen - Brain Wellness Specialist"
+                  src="https://cdn.shopify.com/s/files/1/0928/4105/0486/files/Screenshot_2025-08-21_at_19.04.18.jpg?v=1755796003"
+                  alt="Jennifer Walsh - Hair & Scalp Health Expert"
                   className="w-full h-full object-cover"
                 />
               </div>
 
               <div className="flex-1 text-center md:text-left">
-                <h4 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">Michael Chen</h4>
-                <p className="text-blue-600 font-medium mb-3 sm:mb-4">Brain Wellness Specialist</p>
+                <h4 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">Jennifer Walsh</h4>
+                <p className="text-blue-600 font-medium mb-3 sm:mb-4">Hair & Scalp Health Expert</p>
                 <p className="text-gray-700 leading-relaxed text-sm sm:text-base">
-                  Helping people optimize cognitive performance for over 10 years. Whether you're struggling with brain fog, memory issues, or mental fatigue, I'm here to guide you through understanding what's really happening and find the right solution for your specific situation.
+                  Helping people restore their hair and confidence for over 10 years. Whether you're struggling with postpartum hair loss, menopause thinning, or male pattern baldness, I'm here to guide you through understanding what's really happening and find the right solution for your specific situation.
                 </p>
               </div>
             </div>
@@ -572,7 +830,7 @@ const MethyleneBlueQuiz = () => {
   if (isAnalyzing) {
     const steps = [
       '🧠 Looking at your answers...',
-      '⚡ Checking how bad your problem is...',
+      '⚡ Checking how bad your hair loss is...',
       '📊 Figuring out the best plan for you...',
       '🎯 Finding what will work for your situation...',
       '✅ Making your personal plan...'
@@ -591,7 +849,7 @@ const MethyleneBlueQuiz = () => {
                 </div>
               </div>
 
-              <h2 className="text-2xl font-bold text-gray-800 mb-6">🧠 Analyzing Your Brain Profile...</h2>
+              <h2 className="text-2xl font-bold text-gray-800 mb-6">🧠 Analyzing Your Hair Loss Profile...</h2>
 
               <div className="w-full bg-gray-200 rounded-full h-3 mb-6">
                 <div
@@ -651,8 +909,8 @@ const MethyleneBlueQuiz = () => {
                 Analysis Complete
               </div>
 
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">Your Personal Recovery Plan</h1>
-              <p className="text-gray-600">Based on your specific situation and symptoms</p>
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">Your Personal Hair Restoration Plan</h1>
+              <p className="text-gray-600">Based on your specific situation and hair loss pattern</p>
             </div>
 
             {/* Severity Indicator */}
@@ -671,7 +929,7 @@ const MethyleneBlueQuiz = () => {
                     <svg className="w-3 h-3 sm:w-4 sm:h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
                       <path
                         fillRule="evenodd"
-                        d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                        d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 102 0V6a1 1 0 00-1-1z"
                         clipRule="evenodd"
                       />
                     </svg>
@@ -713,7 +971,7 @@ const MethyleneBlueQuiz = () => {
 
             {/* 2. WHAT THIS MEANS SECTION */}
             <div className="mb-8 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-6 border border-blue-200">
-              <h3 className="text-lg font-semibold text-blue-800 mb-4">Your Next Steps to Mental Clarity</h3>
+              <h3 className="text-lg font-semibold text-blue-800 mb-4">Your Next Steps to Hair Restoration</h3>
               <div className="space-y-3">
                 <div className="flex items-start">
                   <div className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold mr-3 flex-shrink-0">1</div>
@@ -721,24 +979,24 @@ const MethyleneBlueQuiz = () => {
                 </div>
                 <div className="flex items-start">
                   <div className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold mr-3 flex-shrink-0">2</div>
-                  <p className="text-gray-700">See real people's transformation stories</p>
+                  <p className="text-gray-700">See real people's hair restoration stories</p>
                 </div>
                 <div className="flex items-start">
                   <div className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold mr-3 flex-shrink-0">3</div>
-                  <p className="text-gray-700">Start feeling sharp again</p>
+                  <p className="text-gray-700">Start growing your hair back</p>
                 </div>
               </div>
             </div>
 
             {/* 3. YOUR PLAN SECTION */}
             <div className="mb-8">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">Your Recovery Timeline</h3>
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Your Hair Restoration Timeline</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <div className="bg-gradient-to-r from-red-50 to-pink-50 rounded-lg p-4 text-center transform hover:scale-105 transition-all duration-300 border border-red-200">
                   <div className="text-3xl font-bold text-red-600 mb-1">
                     {severity === 'VERY BAD' ? '14-21' : severity === 'BAD' ? '21-28' : '28-35'} days
                   </div>
-                  <div className="text-sm text-gray-600">Expected recovery time</div>
+                  <div className="text-sm text-gray-600">Expected hair regrowth time</div>
                   <div className="w-full bg-red-200 rounded-full h-2 mt-2">
                     <div className="bg-red-500 h-2 rounded-full" style={{ width: '75%' }}></div>
                   </div>
@@ -748,7 +1006,7 @@ const MethyleneBlueQuiz = () => {
                   <div className="text-3xl font-bold text-orange-600 mb-1">
                     {severity === 'VERY BAD' ? '67%' : severity === 'BAD' ? '45%' : '23%'}
                   </div>
-                  <div className="text-sm text-gray-600">Risk if untreated</div>
+                  <div className="text-sm text-gray-600">Risk of permanent loss if untreated</div>
                   <div className="w-full bg-orange-200 rounded-full h-2 mt-2">
                     <div
                       className="bg-orange-500 h-2 rounded-full"
@@ -785,32 +1043,32 @@ const MethyleneBlueQuiz = () => {
               <div className="space-y-4">
                 {/* Testimonial 1 - Blue gradient */}
                 <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg p-4 border-l-4 border-blue-400 transform hover:scale-102 transition-all duration-300">
-                  <p className="text-gray-700 text-sm italic mb-2">"I feel like I'm the lead character in the movie Limitless."</p>
+                  <p className="text-gray-700 text-sm italic mb-2">"I feel like I have a full head of hair again!"</p>
                   <p className="text-xs text-gray-600 font-medium">- James, 42, Tech Executive</p>
                 </div>
 
                 {/* Testimonial 2 - Green gradient */}
                 <div className="bg-gradient-to-r from-green-50 to-green-100 rounded-lg p-4 border-l-4 border-green-400 transform hover:scale-102 transition-all duration-300">
-                  <p className="text-gray-700 text-sm italic mb-2">"Brain isn't braining → Brain fog completely disappeared in 2 weeks"</p>
+                  <p className="text-gray-700 text-sm italic mb-2">"Hair isn't growing → Hair loss completely stopped in 2 weeks"</p>
                   <p className="text-xs text-gray-600 font-medium">- Sarah, 47, Perimenopause</p>
                 </div>
 
                 {/* Testimonial 3 - Blue gradient */}
                 <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg p-4 border-l-4 border-blue-400 transform hover:scale-102 transition-all duration-300">
-                  <p className="text-gray-700 text-sm italic mb-2">"Where'd my ADHD go? I can remember names and go, go, go"</p>
+                  <p className="text-gray-700 text-sm italic mb-2">"Where'd my bald spots go? I can style my hair and go, go, go"</p>
                   <p className="text-xs text-gray-600 font-medium">- Sales Manager, 38</p>
                 </div>
 
                 {/* Testimonial 4 - Green gradient */}
                 <div className="bg-gradient-to-r from-green-50 to-green-100 rounded-lg p-4 border-l-4 border-green-400 transform hover:scale-102 transition-all duration-300">
-                  <p className="text-gray-700 text-sm italic mb-2">"I never knew what a normal brain felt like until now"</p>
-                  <p className="text-xs text-gray-600 font-medium">- Long COVID survivor</p>
+                  <p className="text-gray-700 text-sm italic mb-2">"I never knew what thick hair felt like until now"</p>
+                  <p className="text-xs text-gray-600 font-medium">- Postpartum hair loss survivor</p>
                 </div>
 
                 {/* Testimonial 5 - Blue gradient */}
                 <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg p-4 border-l-4 border-blue-400 transform hover:scale-102 transition-all duration-300">
-                  <p className="text-gray-700 text-sm italic mb-2">"Holy grail for my brain fog and energy"</p>
-                  <p className="text-xs text-gray-600 font-medium">- After trying 20+ supplements</p>
+                  <p className="text-gray-700 text-sm italic mb-2">"Holy grail for my hair loss and regrowth"</p>
+                  <p className="text-xs text-gray-600 font-medium">- After trying 20+ hair products</p>
                 </div>
               </div>
             </div>
@@ -823,91 +1081,91 @@ const MethyleneBlueQuiz = () => {
               </h3>
               
               {/* Dynamic urgency messages based on quiz answers */}
-              {answers.biggest_fear === 'Losing my job' && (
+              {answers.biggest_fear === 'Looking old and unattractive' && (
                 <div className="bg-gradient-to-r from-red-50 to-pink-50 rounded-lg p-4 border-l-4 border-red-400">
                   <div className="flex items-start">
                     <span className="text-2xl mr-3">💼</span>
                     <div>
-                      <p className="text-red-800 font-medium">Your career is on the line RIGHT NOW.</p>
-                      <p className="text-red-700 text-sm mt-1">While you're reading this, sharper colleagues are getting promotions. How many more brain fog mistakes can you afford before it's too late?</p>
+                      <p className="text-red-800 font-medium">Your confidence is on the line RIGHT NOW.</p>
+                      <p className="text-red-700 text-sm mt-1">While you're reading this, your hair is getting thinner. How many more bad hair days can you afford before it's too late?</p>
                     </div>
                   </div>
                 </div>
               )}
               
-              {answers.time_suffering === 'Years - I\'ve given up hope' && (
+              {answers.how_long === 'So long I forgot what thick hair feels like' && (
                 <div className="bg-gradient-to-r from-red-50 to-pink-50 rounded-lg p-4 border-l-4 border-red-400">
                   <div className="flex items-start">
                     <span className="text-2xl mr-3">🔥</span>
                     <div>
-                      <p className="text-red-800 font-medium">You've already lost YEARS to this fog.</p>
-                      <p className="text-red-700 text-sm mt-1">Every day you wait is another day of missing precious moments with family. Don't let this steal another month from your life.</p>
+                      <p className="text-red-800 font-medium">You've already lost YEARS to this hair loss.</p>
+                      <p className="text-red-700 text-sm mt-1">Every day you wait is another day of hiding under hats. Don't let this steal another month from your confidence.</p>
                     </div>
                   </div>
                 </div>
               )}
               
-              {answers.urgency === 'DESPERATELY - My life depends on it' && (
+              {answers.how_badly_need === 'DESPERATELY - I can\'t lose any more hair' && (
                 <div className="bg-gradient-to-r from-red-50 to-orange-50 rounded-lg p-4 border-l-4 border-red-400">
                   <div className="flex items-start">
                     <span className="text-2xl mr-3">🆘</span>
                     <div>
-                      <p className="text-red-800 font-medium">You said your LIFE depends on this working.</p>
-                      <p className="text-red-700 text-sm mt-1">Then why are you still reading instead of trying it? Every day you delay is another day of suffering.</p>
+                      <p className="text-red-800 font-medium">You said you can\'t lose ANY MORE hair.</p>
+                      <p className="text-red-700 text-sm mt-1">Then why are you still reading instead of trying it? Every day you delay is another day of hair loss.</p>
                     </div>
                   </div>
                 </div>
               )}
               
-              {answers.time_suffering === 'Just started and getting worse fast' && (
+              {answers.how_long === 'Just started and I\'m panicking' && (
                 <div className="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg p-4 border-l-4 border-yellow-400">
                   <div className="flex items-start">
                     <span className="text-2xl mr-3">⚡</span>
                     <div>
-                      <p className="text-orange-800 font-medium">You're at a CRITICAL window right now.</p>
-                      <p className="text-orange-700 text-sm mt-1">Brain fog that's 'getting worse fast' means your cellular energy is collapsing. Act NOW while it's still easy to reverse.</p>
+                      <p className="text-orange-800 font-medium">You\'re at a CRITICAL window right now.</p>
+                      <p className="text-orange-700 text-sm mt-1">Hair loss that\'s \'just started\' means your follicles are still alive. Act NOW while it\'s still easy to reverse.</p>
                     </div>
                   </div>
                 </div>
               )}
               
-              {answers.time_suffering === 'Started during menopause' && (
+              {answers.how_long === 'Since pregnancy/menopause' && (
                 <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-4 border-l-4 border-purple-400">
                   <div className="flex items-start">
                     <span className="text-2xl mr-3">🌡️</span>
                     <div>
-                      <p className="text-purple-800 font-medium">Menopause brain fog gets WORSE if you don't address the root cause.</p>
-                      <p className="text-purple-700 text-sm mt-1">Your hormones aren't coming back - but your brain energy CAN.</p>
+                      <p className="text-purple-800 font-medium">Hormonal hair loss gets WORSE if you don\'t address the root cause.</p>
+                      <p className="text-purple-800 text-sm mt-1">Your hormones may not return to normal - but your hair CAN.</p>
                     </div>
                   </div>
                 </div>
               )}
               
-              {answers.biggest_fear === 'Getting Alzheimer\'s disease' && (
+              {answers.biggest_fear === 'Going completely bald' && (
                 <div className="bg-gradient-to-r from-indigo-50 to-blue-50 rounded-lg p-4 border-l-4 border-indigo-400">
                   <div className="flex items-start">
                     <span className="text-2xl mr-3">🧠</span>
                     <div>
-                      <p className="text-indigo-800 font-medium">Every day of brain fog is your brain crying for help.</p>
-                      <p className="text-indigo-700 text-sm mt-1">Research shows mitochondrial dysfunction comes BEFORE serious decline. Fix the energy crisis NOW = protect your future brain.</p>
+                      <p className="text-indigo-800 font-medium">Every day of hair loss is your follicles crying for help.</p>
+                      <p className="text-indigo-700 text-sm mt-1">Research shows DHT damage comes BEFORE permanent baldness. Block the DHT NOW = protect your remaining hair.</p>
                     </div>
                   </div>
                 </div>
               )}
               
               {/* Fallback message - always shows if no other conditions match */}
-              {!answers.biggest_fear?.includes('Losing my job') && 
-               !answers.time_suffering?.includes('Years') && 
-               !answers.urgency?.includes('DESPERATELY') && 
-               !answers.time_suffering?.includes('Just started') && 
-               !answers.time_suffering?.includes('menopause') && 
-               !answers.biggest_fear?.includes('Alzheimer') && (
+              {!answers.biggest_fear?.includes('Looking old and unattractive') && 
+               !answers.how_long?.includes('So long I forgot what thick hair feels like') && 
+               !answers.how_badly_need?.includes('DESPERATELY - I can\'t lose any more hair') && 
+               !answers.how_long?.includes('Just started') && 
+               !answers.how_long?.includes('pregnancy/menopause') && 
+               !answers.biggest_fear?.includes('Going completely bald') && (
                 <div className="bg-gradient-to-r from-orange-50 to-red-50 rounded-lg p-4 border-l-4 border-orange-400">
                   <div className="flex items-start">
                     <span className="text-2xl mr-3">⏰</span>
                     <div>
-                      <p className="text-orange-800 font-medium">Your brain fog won't fix itself.</p>
-                      <p className="text-orange-700 text-sm mt-1">Every day you wait is another day of struggling. The longer you delay, the harder it gets to reverse. Don't let this steal more time from your life.</p>
+                      <p className="text-orange-800 font-medium">Your hair loss won\'t fix itself.</p>
+                      <p className="text-orange-700 text-sm mt-1">Every day you wait is another day of thinning. The longer you delay, the harder it gets to reverse. Don\'t let this steal more hair from your head.</p>
                     </div>
                   </div>
                 </div>
@@ -928,7 +1186,7 @@ const MethyleneBlueQuiz = () => {
                     clipRule="evenodd"
                   />
                 </svg>
-                How Your "Backup Generator" Works
+                How Natural DHT Blocking Works
               </h3>
                 <svg 
                   className={`w-5 h-5 text-blue-600 transition-transform ${accordionOpen.howItWorks ? 'rotate-180' : ''}`} 
@@ -945,27 +1203,27 @@ const MethyleneBlueQuiz = () => {
                     <div className="text-center">
                       <div className="w-16 h-16 bg-gradient-to-r from-red-100 to-red-200 rounded-full flex items-center justify-center mx-auto mb-3">
                         <span className="text-2xl">🔋</span>
-                  </div>
-                  <h4 className="font-medium text-gray-800 mb-2">Your Problem</h4>
-                  <p className="text-sm text-gray-600">Brain's power plants are failing</p>
-                </div>
+                      </div>
+                      <h4 className="font-medium text-gray-800 mb-2">Your Problem</h4>
+                      <p className="text-sm text-gray-600">DHT hormone is killing your follicles</p>
+                    </div>
 
                     <div className="text-center">
                       <div className="w-16 h-16 bg-gradient-to-r from-blue-100 to-blue-200 rounded-full flex items-center justify-center mx-auto mb-3">
                         <span className="text-2xl">⚡</span>
-                  </div>
-                  <h4 className="font-medium text-gray-800 mb-2">The Solution</h4>
-                  <p className="text-sm text-gray-600">MB acts as backup generator</p>
-                </div>
+                      </div>
+                      <h4 className="font-medium text-gray-800 mb-2">The Solution</h4>
+                      <p className="text-sm text-gray-600">Natural DHT blocker stops the damage</p>
+                    </div>
 
                     <div className="text-center">
                       <div className="w-16 h-16 bg-gradient-to-r from-green-100 to-green-200 rounded-full flex items-center justify-center mx-auto mb-3">
                         <span className="text-2xl">🧠</span>
+                      </div>
+                      <h4 className="font-medium text-gray-800 mb-2">The Result</h4>
+                      <p className="text-sm text-gray-600">Hair stops falling, starts growing</p>
+                    </div>
                   </div>
-                  <h4 className="font-medium text-gray-800 mb-2">The Result</h4>
-                  <p className="text-sm text-gray-600">Brain gets energy, fog lifts</p>
-                </div>
-              </div>
             </div>
               )}
             </div>
@@ -978,11 +1236,11 @@ const MethyleneBlueQuiz = () => {
                 <svg className="w-6 h-6 text-yellow-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
                   <path
                     fillRule="evenodd"
-                    d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                    d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 102 0V6a1 1 0 00-1-1z"
                     clipRule="evenodd"
                   />
                 </svg>
-                <h3 className="text-lg font-semibold text-yellow-800">73% of Online MB is FAKE</h3>
+                <h3 className="text-lg font-semibold text-yellow-800">73% of Online Hair Loss Products are FAKE</h3>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -991,7 +1249,7 @@ const MethyleneBlueQuiz = () => {
                     <span className="mr-1">❌</span> Fake/Dangerous:
                   </h4>
                   <div className="space-y-1 text-sm text-red-600">
-                    <p>• Industrial dye (not medical)</p>
+                    <p>• Industrial chemicals (not medical)</p>
                     <p>• Wrong concentrations</p>
                     <p>• Heavy metal contamination</p>
                     <p>• No safety testing</p>
@@ -1029,7 +1287,7 @@ const MethyleneBlueQuiz = () => {
                     <span className="text-green-600 font-bold text-sm">S</span>
                   </div>
                   <div>
-                    <p className="text-gray-700 text-sm italic">"I feel like a different person. Never knew what a normal brain felt like until now."</p>
+                    <p className="text-gray-700 text-sm italic">"I feel like a different person. Never knew what thick hair felt like until now."</p>
                     <p className="text-xs text-gray-500 mt-1">- Sarah, 47</p>
                   </div>
                 </div>
@@ -1039,7 +1297,7 @@ const MethyleneBlueQuiz = () => {
                     <span className="text-blue-600 font-bold text-sm">M</span>
                   </div>
                   <div>
-                    <p className="text-gray-700 text-sm italic">"Holy grail for my brain fog. Best investment in my health EVER!"</p>
+                    <p className="text-gray-700 text-sm italic">"Holy grail for my hair loss. Best investment in my appearance EVER!"</p>
                     <p className="text-xs text-gray-500 mt-1">- Mark, 52</p>
                   </div>
                 </div>
@@ -1076,36 +1334,27 @@ const MethyleneBlueQuiz = () => {
             <div className="text-center space-y-4">
               <div className="bg-gradient-to-r from-yellow-100 to-orange-100 rounded-lg p-4 mb-6 border border-yellow-300">
                 <p className="text-yellow-800 font-bold text-lg">
-                  🕒 {severity === 'VERY BAD' ? 'TIME IS RUNNING OUT - Your brain needs help NOW' : 'Act while this is still reversible'}
+                  🕒 {severity === 'VERY BAD' ? 'TIME IS RUNNING OUT - Your hair needs help NOW' : 'Act while this is still reversible'}
                 </p>
               </div>
 
               {/* Product Image */}
               <div className="mb-6">
                 <img 
-                  src="https://cdn.shopify.com/s/files/1/0965/1824/2645/files/gempages_576616250101203794-fe99edc8-ea27-4ae8-8ab7-13adbf0b7e85.jpg?v=1754337430"
-                  alt="Pharmaceutical-Grade Methylene Blue Product"
+                  src="https://cdn.shopify.com/s/files/1/0928/4105/0486/files/Kaching-Bundles-2_2.jpg?v=1753103463"
+                  alt="Natural Hair Loss Solution Product"
                   className="w-full max-w-md mx-auto rounded-2xl shadow-lg"
                 />
               </div>
 
                             <a
-                              href="https://methyleneblueco.com/products/ultra-pure-methylene-blue-gummies"
+                              href="https://pumpkinseedoil.co/products/pumpkin-seed-oil"
                               className="block w-full"
-                              onClick={() => {
-                                trackEvent('cta_clicked', { button: 'yes_main', cta_text: 'Claim My 50% OFF' });
-                                trackFacebookEvent('AddToWishlist', {
-                                  content_name: 'Methylene Blue Quiz CTA',
-                                  content_category: 'Health Assessment',
-                                  quiz_severity: severity,
-                                  button_clicked: 'yes_main',
-                                  cta_text: 'Claim My 50% OFF'
-                                });
-                              }}
+                              onClick={handleCTAClick}
                             >
                               <button className="w-full bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white font-bold py-3 sm:py-4 px-4 sm:px-8 rounded-xl text-lg sm:text-xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105">
                                 ✅ YES - Claim My 50% OFF (Limited Time) →
-              </button>
+                              </button>
                             </a>
               
               {/* Low Stock Warning */}
@@ -1125,10 +1374,16 @@ const MethyleneBlueQuiz = () => {
 
               <button 
                 onClick={() => {
-                  trackEvent('cta_clicked', { button: 'no_thanks', cta_text: 'No thanks' });
+                  safeGtag('event', 'no_thanks_clicked', {
+                    content_name: 'Hair Loss Quiz',
+                    quiz_severity: figureOutSeverity(),
+                    button_text: 'No thanks, I\'ll keep suffering while Big Pharma profits',
+                    time_on_page_seconds: timeOnPage
+                  });
                   setShowNoThanksPopup(true);
                 }}
                 className="w-full bg-gradient-to-r from-gray-200 to-gray-300 hover:from-gray-300 hover:to-gray-400 text-gray-600 font-medium py-2.5 sm:py-3 px-4 sm:px-8 rounded-xl transition-all duration-300 transform hover:scale-105 text-sm sm:text-base"
+                onMouseEnter={() => trackHover('no_thanks_button')}
               >
                 No thanks, I'll keep suffering while Big Pharma profits
               </button>
@@ -1138,32 +1393,35 @@ const MethyleneBlueQuiz = () => {
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                   <div className="bg-white rounded-2xl p-6 sm:p-8 max-w-md w-full mx-4 shadow-2xl">
                     <div className="text-center">
-                      <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-4">We Get It - You Want Proof First</h3>
+                      <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-4">Don't Wait Another Day</h3>
                       
                       <p className="text-gray-700 mb-4 sm:mb-6 text-sm sm:text-base">
-                        Before you spend money on ANOTHER supplement that might not work, 
-                        read this breakthrough research about why your brain feels broken.
+                        Every day you wait is another day of watching your hair disappear. 
+                        While you're hesitating, your follicles are getting weaker. 
+                        Don't let another month pass by.
                       </p>
 
-                      <a
-                        href="https://methyleneblueco.com/pages/blogg"
-                        className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 sm:py-3 px-4 sm:px-6 rounded-xl transition-all duration-300 transform hover:scale-105 mb-4 text-sm sm:text-base"
-                        onClick={() => trackEvent('popup_interaction', { action: 'blog_link_clicked', link_text: 'The Hidden Energy Crisis Destroying Your Brain' })}
-                      >
-                        → "The Hidden Energy Crisis Destroying Your Brain"
-                      </a>
-                      
-                      <p className="text-blue-600 text-xs sm:text-sm mb-4 sm:mb-6">(5-minute read that explains everything)</p>
-
-                      <div className="text-left">
-                        <p className="text-gray-700 font-medium mb-2 sm:mb-3 text-sm sm:text-base">After reading, you'll understand:</p>
-                        <div className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm text-gray-600">
-                          <div className="flex items-center"><span className="mr-2 text-green-500">✓</span> Why coffee stopped working</div>
-                          <div className="flex items-center"><span className="mr-2 text-green-500">✓</span> Why this isn't "just aging"</div>
-                          <div className="flex items-center"><span className="mr-2 text-green-500">✓</span> Why 73% of online solutions are fake</div>
-                          <div className="flex items-center"><span className="mr-2 text-green-500">✓</span> How to fix this at the cellular level</div>
+                      <div className="space-y-3 mb-6">
+                        <div className="bg-gradient-to-r from-red-50 to-pink-50 rounded-lg p-3 border-l-4 border-red-400">
+                          <p className="text-red-800 font-medium text-sm">⏰ Time is NOT on your side</p>
+                          <p className="text-red-700 text-xs mt-1">Every day = more hair lost forever</p>
+                        </div>
+                        
+                        <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-3 border-l-4 border-blue-400">
+                          <p className="text-blue-800 font-medium text-sm">💪 You deserve to feel confident again</p>
+                          <p className="text-blue-700 text-xs mt-1">Your hair doesn't have to define you</p>
                         </div>
                       </div>
+
+                      <a
+                        href="https://pumpkinseedoil.co/products/pumpkin-seed-oil"
+                        className="inline-block bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white font-medium py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 mb-4 text-sm sm:text-base w-full"
+                        onClick={() => trackEvent('popup_interaction', { action: 'product_button_clicked', button_text: 'Start My Hair Restoration' })}
+                      >
+                        🚀 Start My Hair Restoration Today
+                      </a>
+                      
+                      <p className="text-green-600 text-xs sm:text-sm mb-4 sm:mb-6">(Join thousands who stopped waiting and started growing)</p>
 
                       <button
                         onClick={() => setShowNoThanksPopup(false)}
@@ -1176,7 +1434,7 @@ const MethyleneBlueQuiz = () => {
                 </div>
               )}
 
-              <p className="text-sm text-gray-500 mt-4">💡 Join thousands who broke free from the medical system and got their lives back</p>
+              <p className="text-sm text-gray-500 mt-4">💡 Join thousands who broke free from expensive treatments and got their hair back</p>
             </div>
           </div>
         </div>
@@ -1196,8 +1454,8 @@ const MethyleneBlueQuiz = () => {
           <div className="text-center mb-6 sm:mb-8">
             <div className="w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20 lg:w-24 lg:h-24 rounded-full mx-auto mb-4 overflow-hidden shadow-xl ring-4 ring-white">
               <img 
-                src="https://cdn.shopify.com/s/files/1/0965/1824/2645/files/dr_chen.jpg?v=1755129328" 
-                alt="Dr. Michael Chen - Brain Wellness Specialist"
+                src="https://cdn.shopify.com/s/files/1/0928/4105/0486/files/Screenshot_2025-08-21_at_19.04.18.jpg?v=1755796003"
+                alt="Jennifer Walsh - Hair & Scalp Health Expert"
                 className="w-full h-full object-cover"
               />
             </div>
@@ -1227,7 +1485,7 @@ const MethyleneBlueQuiz = () => {
                 {currentQuestion.subtitle && <p className="text-gray-600 mb-6 sm:mb-8 text-center text-base sm:text-lg">{currentQuestion.subtitle}</p>}
 
                 <div className="space-y-3 sm:space-y-4">
-                  {currentQuestion.options.map((option: string, index: number) => (
+                  {currentQuestion.options?.map((option: string, index: number) => (
                     <button
                       key={index}
                       onClick={() => handleAnswer((currentQuestion as any).id, option)}
