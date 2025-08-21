@@ -48,6 +48,12 @@ const MethyleneBlueQuiz = () => {
     setSelectedAnswer('');
   }, [questionIndex]);
 
+  // Also clear selectedAnswer when questionIndex changes (extra safety)
+  useEffect(() => {
+    console.log('useEffect: clearing selectedAnswer, questionIndex:', questionIndex);
+    setSelectedAnswer('');
+  }, [questionIndex]);
+
   // Helper function to safely call gtag
   const safeGtag = (...args: any[]) => {
     if (typeof window !== 'undefined' && window.gtag) {
@@ -568,6 +574,8 @@ const MethyleneBlueQuiz = () => {
       setCurrentStep('quiz');
     } else if (currentStep === 'quiz') {
       if (questionIndex < getAllQuestions().length - 1) {
+        // Clear selected answer before moving to next question
+        clearSelectedAnswer();
         setQuestionIndex(questionIndex + 1);
         
         // Track next question
