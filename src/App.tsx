@@ -48,10 +48,18 @@ const MethyleneBlueQuiz = () => {
     setSelectedAnswer('');
   }, [questionIndex]);
 
-  // Also clear selectedAnswer when questionIndex changes (extra safety)
+  // Force clear selectedAnswer when questionIndex changes (aggressive fix)
   useEffect(() => {
-    console.log('useEffect: clearing selectedAnswer, questionIndex:', questionIndex);
+    console.log('useEffect: FORCE clearing selectedAnswer, questionIndex:', questionIndex);
     setSelectedAnswer('');
+    
+    // Double-check after a short delay
+    setTimeout(() => {
+      if (selectedAnswer !== '') {
+        console.log('Double-check: clearing selectedAnswer again');
+        setSelectedAnswer('');
+      }
+    }, 100);
   }, [questionIndex]);
 
   // Helper function to safely call gtag
@@ -582,8 +590,17 @@ const MethyleneBlueQuiz = () => {
       setCurrentStep('quiz');
     } else if (currentStep === 'quiz') {
       if (questionIndex < getAllQuestions().length - 1) {
-        // Clear selected answer before moving to next question
+        // Force clear selected answer multiple times
+        console.log('nextStep: FORCE clearing selectedAnswer');
+        setSelectedAnswer('');
         clearSelectedAnswer();
+        
+        // Clear again after state update
+        setTimeout(() => {
+          setSelectedAnswer('');
+          console.log('nextStep: Double-clear selectedAnswer');
+        }, 50);
+        
         setQuestionIndex(questionIndex + 1);
         
         // Track next question
