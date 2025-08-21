@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 
 // TypeScript declarations for global functions
 declare global {
@@ -40,6 +40,13 @@ const MethyleneBlueQuiz = () => {
   const [timeOnPage, setTimeOnPage] = useState<number>(0);
   const [scrollDepth, setScrollDepth] = useState<number>(0);
   const [interactionCount, setInteractionCount] = useState<number>(0);
+  const [selectedAnswer, setSelectedAnswer] = useState<string>('');
+
+  // Clear selected answer when question changes - using useCallback to prevent unnecessary re-renders
+  const clearSelectedAnswer = useCallback(() => {
+    console.log('clearSelectedAnswer called, questionIndex:', questionIndex);
+    setSelectedAnswer('');
+  }, [questionIndex]);
 
   // Helper function to safely call gtag
   const safeGtag = (...args: any[]) => {
@@ -585,12 +592,8 @@ const MethyleneBlueQuiz = () => {
         setIsAnalyzing(true);
         setCurrentStep('analysis');
         
-        // Simulate analysis
-        setTimeout(() => {
-          setIsAnalyzing(false);
-          setShowResult(true);
-          setCurrentStep('result');
-        }, 3000);
+        // Start the proper analysis sequence
+        startAnalysis();
       }
     }
   };
@@ -607,12 +610,25 @@ const MethyleneBlueQuiz = () => {
     ];
 
     let step = 0;
-    const interval = setInterval(() => {
-      setAnalysisStep(step);
+    
+    // Show first step immediately
+    setAnalysisStep(step);
+    console.log(`Starting analysis - Step ${step}: ${steps[step]}`);
+    
+    // Function to show next step
+    const showNextStep = () => {
       step++;
-
-      if (step >= steps.length) {
-        clearInterval(interval);
+      
+      if (step < steps.length) {
+        setAnalysisStep(step);
+        console.log(`Showing analysis step ${step}: ${steps[step]}`);
+        
+        // Schedule next step
+        setTimeout(showNextStep, 3000);
+      } else {
+        console.log('Analysis complete, showing final step for 3 seconds...');
+        
+        // Show final step for 3 seconds, then go to results
         setTimeout(() => {
           setIsAnalyzing(false);
           setShowResult(true);
@@ -640,9 +656,12 @@ const MethyleneBlueQuiz = () => {
           });
           
           console.log('✅ quiz_completed event sent!');
-        }, 2000); // Increased from 1000ms to 2000ms
+        }, 3000); // Show final step for 3 seconds
       }
-    }, 1500);
+    };
+    
+    // Start the sequence after 3 seconds
+    setTimeout(showNextStep, 3000);
   };
 
   const handleCTAClick = () => {
@@ -1231,38 +1250,70 @@ const MethyleneBlueQuiz = () => {
 
 
             {/* Quality Warning */}
-            <div className="mb-8 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-xl p-6 border border-yellow-300">
-              <div className="flex items-center mb-4">
-                <svg className="w-6 h-6 text-yellow-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
+            <div className="mb-8 bg-yellow-50 border-2 border-yellow-300 rounded-xl p-6">
+              <div className="flex items-center mb-6">
+                <svg className="w-7 h-7 text-yellow-600 mr-3" fill="currentColor" viewBox="0 0 20 20">
                   <path
                     fillRule="evenodd"
                     d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 102 0V6a1 1 0 00-1-1z"
                     clipRule="evenodd"
                   />
                 </svg>
-                <h3 className="text-lg font-semibold text-yellow-800">73% of Online Hair Loss Products are FAKE</h3>
+                <h3 className="text-xl font-bold text-yellow-800">⚠️ 73% of Online Hair Loss Products are FAKE</h3>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <h4 className="font-medium text-red-600 mb-2 flex items-center">
-                    <span className="mr-1">❌</span> Fake/Dangerous:
+              <div className="text-center mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-blue-800 font-semibold text-sm sm:text-base">
+                  Only <strong>Pumpkin Seed Oil from trusted site</strong> is what you need right now - scroll to see the trusted site
+                </p>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <h4 className="font-bold text-red-700 mb-3 flex items-center text-lg">
+                    <span className="mr-2 text-xl">❌</span> Fake & Dangerous
                   </h4>
-                  <div className="space-y-1 text-sm text-red-600">
-                    <p>• Industrial chemicals (not medical)</p>
-                    <p>• Wrong concentrations</p>
-                    <p>• Heavy metal contamination</p>
-                    <p>• No safety testing</p>
+                  <div className="space-y-2">
+                    <div className="flex items-start">
+                      <span className="text-red-500 mr-2 mt-1">•</span>
+                      <p className="text-red-700 text-sm">Industrial chemicals (not medical grade)</p>
+                    </div>
+                    <div className="flex items-start">
+                      <span className="text-red-500 mr-2 mt-1">•</span>
+                      <p className="text-red-700 text-sm">Wrong concentrations</p>
+                    </div>
+                    <div className="flex items-start">
+                      <span className="text-red-500 mr-2 mt-1">•</span>
+                      <p className="text-red-700 text-sm">Heavy metal contamination</p>
+                    </div>
+                    <div className="flex items-start">
+                      <span className="text-red-500 mr-2 mt-1">•</span>
+                      <p className="text-red-700 text-sm">No safety testing</p>
+                    </div>
                   </div>
                 </div>
-                <div>
-                  <h4 className="font-medium text-green-600 mb-2 flex items-center">
-                    <span className="mr-1">✅</span> Real/Safe:
+                
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <h4 className="font-bold text-green-700 mb-3 flex items-center text-lg">
+                    <span className="mr-2 text-xl">✅</span> Real & Safe
                   </h4>
-                  <div className="space-y-1 text-sm text-green-600">
-                    <p>• Pharmaceutical grade</p>
-                    <p>• Hospital quality</p>
-                    <p>• Lab tested purity</p>
+                  <div className="space-y-2">
+                    <div className="flex items-start">
+                      <span className="text-green-500 mr-2 mt-1">•</span>
+                      <p className="text-green-700 text-sm">Pharmaceutical grade quality</p>
+                    </div>
+                    <div className="flex items-start">
+                      <span className="text-green-500 mr-2 mt-1">•</span>
+                      <p className="text-green-700 text-sm">Hospital quality standards</p>
+                    </div>
+                    <div className="flex items-start">
+                      <span className="text-green-500 mr-2 mt-1">•</span>
+                      <p className="text-green-700 text-sm">Lab tested for purity</p>
+                    </div>
+                    <div className="flex items-start">
+                      <span className="text-green-500 mr-2 mt-1">•</span>
+                      <p className="text-green-700 text-sm font-semibold">Pumpkin Seed Oil from trusted site</p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1448,11 +1499,11 @@ const MethyleneBlueQuiz = () => {
 
   if (currentStep === 'quiz' && currentQuestion) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-4">
-        <div className="max-w-2xl mx-auto">
-          {/* Profile Image */}
-          <div className="text-center mb-6 sm:mb-8">
-            <div className="w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20 lg:w-24 lg:h-24 rounded-full mx-auto mb-4 overflow-hidden shadow-xl ring-4 ring-white">
+      <div key={`quiz-${questionIndex}`} className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-2 sm:p-4 pt-4 sm:pt-8 flex items-start justify-center">
+        <div className="max-w-2xl mx-auto w-full">
+          {/* Profile Image - compact for mobile */}
+          <div className="text-center mb-2 sm:mb-3 md:mb-4">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 lg:w-20 lg:h-20 rounded-full mx-auto mb-2 sm:mb-3 overflow-hidden shadow-xl ring-4 ring-white">
               <img 
                 src="https://cdn.shopify.com/s/files/1/0928/4105/0486/files/Screenshot_2025-08-21_at_19.04.18.jpg?v=1755796003"
                 alt="Jennifer Walsh - Hair & Scalp Health Expert"
@@ -1461,13 +1512,13 @@ const MethyleneBlueQuiz = () => {
             </div>
           </div>
 
-          {/* Progress Indicator */}
-          <div className="mb-6 sm:mb-8">
-            <div className="flex justify-center space-x-1 mb-4 flex-wrap max-w-md mx-auto">
+          {/* Progress Indicator - compact for mobile */}
+          <div className="mb-2 sm:mb-3 md:mb-4">
+            <div className="flex justify-center space-x-1 mb-2 sm:mb-3 flex-wrap max-w-md mx-auto">
               {Array.from({ length: questions.length }, (_, i) => (
                 <div
                   key={i}
-                  className={`w-1.5 h-1.5 sm:w-2 sm:h-2 md:w-3 md:h-3 rounded-sm transition-all duration-300 ${
+                  className={`w-1 h-1 sm:w-1.5 sm:h-1.5 md:w-2 md:h-2 lg:w-3 lg:h-3 rounded-sm transition-all duration-300 ${
                     i <= questionIndex
                       ? 'bg-blue-600'
                       : 'bg-gray-300'
@@ -1477,21 +1528,33 @@ const MethyleneBlueQuiz = () => {
             </div>
           </div>
 
-          {/* Question Container */}
-          <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/20 p-6 sm:p-10">
+          {/* Question Container - optimized padding */}
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-2xl border border-white/20 p-3 sm:p-5 md:p-8 lg:p-10">
             {currentQuestion.type === 'question' ? (
               <>
-                <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-6 sm:mb-8 text-center">{currentQuestion.title}</h2>
-                {currentQuestion.subtitle && <p className="text-gray-600 mb-6 sm:mb-8 text-center text-base sm:text-lg">{currentQuestion.subtitle}</p>}
+                <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-gray-900 mb-3 sm:mb-4 md:mb-6 text-center leading-tight">
+                  {currentQuestion.title}
+                </h2>
+                {currentQuestion.subtitle && (
+                  <p className="text-gray-600 mb-3 sm:mb-4 md:mb-6 text-center text-sm sm:text-base md:text-lg leading-relaxed">
+                    {currentQuestion.subtitle}
+                  </p>
+                )}
 
-                <div className="space-y-3 sm:space-y-4">
+                <div className="space-y-2 sm:space-y-3 md:space-y-4">
                   {currentQuestion.options?.map((option: string, index: number) => (
                     <button
                       key={index}
                       onClick={() => handleAnswer((currentQuestion as any).id, option)}
-                      className="w-full text-left p-4 sm:p-6 rounded-2xl border-2 border-gray-200 hover:border-blue-500 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-all duration-300 transform hover:scale-105 bg-white shadow-sm hover:shadow-md"
+                      className={`w-full text-left p-3 sm:p-4 md:p-6 rounded-xl sm:rounded-2xl border-2 transition-all duration-300 transform hover:scale-105 bg-white shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 ${
+                        selectedAnswer === option
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-gray-200 hover:border-blue-500 hover:bg-blue-50'
+                      }`}
                     >
-                      <span className="text-gray-800 font-medium text-base sm:text-lg">{option}</span>
+                      <span className="text-gray-800 font-medium text-sm sm:text-base md:text-lg leading-relaxed">
+                        {option}
+                      </span>
                     </button>
                   ))}
                 </div>
