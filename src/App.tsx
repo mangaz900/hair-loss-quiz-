@@ -532,7 +532,15 @@ const MethyleneBlueQuiz = () => {
   };
 
   const handleAnswer = (questionId: string, answer: string) => {
+    // Prevent multiple rapid calls
+    if (selectedAnswer !== '') return;
+    
     const timeSpent = Date.now() - questionStartTime;
+    
+    console.log('handleAnswer called with:', answer);
+    
+    // Set the selected answer for visual feedback
+    setSelectedAnswer(answer);
     
     // Track question time
     trackQuestionTime(questionId, timeSpent);
@@ -1554,7 +1562,10 @@ const MethyleneBlueQuiz = () => {
                     <button
                       key={index}
                       onClick={() => handleAnswer((currentQuestion as any).id, option)}
-                      onTouchStart={() => handleAnswer((currentQuestion as any).id, option)}
+                      onTouchStart={(e) => {
+                        e.preventDefault();
+                        handleAnswer((currentQuestion as any).id, option);
+                      }}
                       className={`w-full text-left p-3 sm:p-4 md:p-6 rounded-xl sm:rounded-2xl border-2 transition-all duration-300 transform hover:scale-105 bg-white shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 touch-manipulation ${
                         selectedAnswer === option
                           ? 'border-blue-500 bg-blue-50'
@@ -1590,7 +1601,10 @@ const MethyleneBlueQuiz = () => {
                 
                 <button 
                   onClick={nextStep}
-                  onTouchStart={nextStep}
+                  onTouchStart={(e) => {
+                    e.preventDefault();
+                    nextStep();
+                  }}
                   className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 sm:py-4 px-6 sm:px-8 rounded-2xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 flex items-center mx-auto touch-manipulation"
                 >
                   Continue
@@ -1612,7 +1626,8 @@ const MethyleneBlueQuiz = () => {
                   setCurrentStep('hero');
                 }
               }}
-              onTouchStart={() => {
+              onTouchStart={(e) => {
+                e.preventDefault();
                 if (questionIndex > 0) {
                   setQuestionIndex(questionIndex - 1);
                 } else {
