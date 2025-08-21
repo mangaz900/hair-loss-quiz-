@@ -1554,7 +1554,8 @@ const MethyleneBlueQuiz = () => {
                     <button
                       key={index}
                       onClick={() => handleAnswer((currentQuestion as any).id, option)}
-                      className={`w-full text-left p-3 sm:p-4 md:p-6 rounded-xl sm:rounded-2xl border-2 transition-all duration-300 transform hover:scale-105 bg-white shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 ${
+                      onTouchStart={() => handleAnswer((currentQuestion as any).id, option)}
+                      className={`w-full text-left p-3 sm:p-4 md:p-6 rounded-xl sm:rounded-2xl border-2 transition-all duration-300 transform hover:scale-105 bg-white shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 touch-manipulation ${
                         selectedAnswer === option
                           ? 'border-blue-500 bg-blue-50'
                           : 'border-gray-200 hover:border-blue-500 hover:bg-blue-50'
@@ -1588,8 +1589,9 @@ const MethyleneBlueQuiz = () => {
                 )}
                 
                 <button 
-                  onClick={nextStep} 
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 sm:py-4 px-6 sm:px-8 rounded-2xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 flex items-center mx-auto"
+                  onClick={nextStep}
+                  onTouchStart={nextStep}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 sm:py-4 px-6 sm:px-8 rounded-2xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 flex items-center mx-auto touch-manipulation"
                 >
                   Continue
                   <svg className="ml-2 w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1610,7 +1612,14 @@ const MethyleneBlueQuiz = () => {
                   setCurrentStep('hero');
                 }
               }}
-              className="text-gray-500 hover:text-gray-700 transition-colors duration-200 font-medium"
+              onTouchStart={() => {
+                if (questionIndex > 0) {
+                  setQuestionIndex(questionIndex - 1);
+                } else {
+                  setCurrentStep('hero');
+                }
+              }}
+              className="text-gray-500 hover:text-gray-700 transition-colors duration-200 font-medium touch-manipulation"
             >
               ← Back
             </button>
