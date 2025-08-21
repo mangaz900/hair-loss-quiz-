@@ -1583,11 +1583,7 @@ const MethyleneBlueQuiz = () => {
                         e.preventDefault();
                         handleAnswer((currentQuestion as any).id, option);
                       }}
-                      className={`w-full text-left p-3 sm:p-4 md:p-6 rounded-xl sm:rounded-2xl border-2 transition-all duration-300 transform hover:scale-105 bg-white shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 touch-manipulation ${
-                        selectedAnswer === option
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'border-gray-200 hover:border-blue-500 hover:bg-blue-50'
-                      }`}
+                      className="w-full text-left p-3 sm:p-4 md:p-6 rounded-xl sm:rounded-2xl border-2 border-gray-200 hover:border-blue-500 hover:bg-blue-50 transition-all duration-300 transform hover:scale-105 bg-white shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 touch-manipulation"
                     >
                       <span className="text-gray-800 font-medium text-sm sm:text-base md:text-lg leading-relaxed">
                         {option}
